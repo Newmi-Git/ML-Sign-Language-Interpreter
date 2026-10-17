@@ -4,7 +4,11 @@ import time
 from mediapipe.tasks.python import BaseOptions
 from mediapipe.tasks.python import vision 
 
-
+def extract_features(hand):
+    mt_list = []
+    for point in hand:
+        mt_list.extend([point.x,point.y,point.z])
+    return mt_list
 
 camera = cv2.VideoCapture(0)
 base = BaseOptions(model_asset_path="data/models/hand_landmarker.task")
@@ -35,6 +39,8 @@ while True:
     result = hands.detect_for_video(mp_image, timestamp)
     print(len(result.hand_landmarks))
     if result.hand_landmarks:
+        features = extract_features(result.hand_landmarks[0])
+        print("hands:", len(result.hand_landmarks), "features:", len(features))
         for hand in result.hand_landmarks:
             for point in hand:
                 px = int(point.x * w)
