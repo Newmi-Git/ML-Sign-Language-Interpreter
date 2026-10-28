@@ -69,8 +69,6 @@ while True:
         counts[letter] += 1
 
     
-    
-
 f.close()
 
 print(counts)
