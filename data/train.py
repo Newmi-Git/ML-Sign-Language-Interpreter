@@ -4,8 +4,8 @@ import numpy as np
 import torch.nn as nn
 from sklearn.model_selection import train_test_split
 import os
-
-df = pd.read_csv("data.csv", header=None)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+df = pd.read_csv(os.path.join(BASE_DIR, "data.csv"), header=None)
 print(df[0].value_counts().sort_index())
 
 
@@ -28,7 +28,7 @@ model = nn.Sequential (
     nn.Linear(128, 64),
     nn.ReLU(),
 
-    nn.Linear(128, len(labels))
+    nn.Linear(64, len(labels))
 )
 
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
