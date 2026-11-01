@@ -6,14 +6,16 @@ import time
 from mediapipe.tasks.python import BaseOptions
 from mediapipe.tasks.python import vision 
 import os
+
 MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models", "hand_landmarker.task")
 print(MODEL_PATH, os.path.exists(MODEL_PATH))
-
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CSV_PATH = os.path.join(BASE_DIR, "data.csv")
 
 
 letters = "ABCDEFGHIKLMNOPQRSTUVWXY"
 counts = {c: 0 for c in letters}
-f = open("data.csv","a", newline="")
+f = open(CSV_PATH, "a", newline="")
 writer = csv.writer(f)
 last_letter = ""
 camera = cv2.VideoCapture(0)
