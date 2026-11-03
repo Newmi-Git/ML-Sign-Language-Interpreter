@@ -68,6 +68,13 @@ while True:
             cv2.circle(frame, (int(p.x * w), int(p.y * h)), 5, (0, 255, 0), 1)
         miss = 0
         item = frame_features(hand)
+    if face_result.face_landmarks:
+        for marks in face_result.face_landmarks[0]:
+            px = int(marks.x * w)
+            py = int(marks.y * h)
+            cv2.circle(frame,  (px, py), 1, (255, 0, 0), -1)
+
+        landmarks = face_result.face_landmarks[0]
     elif rec_label and window and miss < MAX_MISS:
         miss += 1
         item = window[-1]          # hand lost briefly: repeat last good frame

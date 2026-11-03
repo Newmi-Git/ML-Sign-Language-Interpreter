@@ -15,6 +15,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CSV_PATH = os.path.join(BASE_DIR, "data.csv")
 
 
+
 letters = "ABCDEFGHIKLMNOPQRSTUVWXY"
 counts = {c: 0 for c in letters}
 f = open(CSV_PATH, "a", newline="")
