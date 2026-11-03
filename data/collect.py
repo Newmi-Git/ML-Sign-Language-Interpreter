@@ -8,10 +8,12 @@ from mediapipe.tasks.python import vision
 import os 
 
 MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models", "hand_landmarker.task")
+FACE_MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models", "face_landmarker.task")
+POSE_MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models", "pose_landmarker.task")
 print(MODEL_PATH, os.path.exists(MODEL_PATH))
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CSV_PATH = os.path.join(BASE_DIR, "data.csv")
-FACE_MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models", "face_landmarker.task")
+
 
 letters = "ABCDEFGHIKLMNOPQRSTUVWXY"
 counts = {c: 0 for c in letters}
@@ -19,16 +21,21 @@ f = open(CSV_PATH, "a", newline="")
 writer = csv.writer(f)
 last_letter = ""
 camera = cv2.VideoCapture(0)
+
 base = BaseOptions(model_asset_path=MODEL_PATH)
-
 fbase = BaseOptions(model_asset_path=FACE_MODEL_PATH)
-
+pbase = BaseOptions(model_asset_path=POSE_MODEL_PATH)
 foptions = vision.FaceLandmarkerOptions(
     base_options=fbase,
     running_mode=vision.RunningMode.VIDEO,
     num_faces = 1
 )
 
+poptions = vision.PoseLandmarkerOptions(
+    base_options=pbase,
+    running_mode=vision.RunningMode.VIDEO,
+    num_poses=1
+)
 
 options = vision.HandLandmarkerOptions(
     base_options = base,
@@ -42,6 +49,8 @@ options = vision.HandLandmarkerOptions(
 
 hands = vision.HandLandmarker.create_from_options(options)
 face = vision.FaceLandmarker.create_from_options(foptions)
+pose = vision.PoseLandmarker.create_from_options(poptions)
+
 while True:
     success, frame = camera.read()
 
@@ -59,6 +68,7 @@ while True:
     result = hands.detect_for_video(mp_image, timestamp)
     features = None
     face_result = face.detect_for_video(mp_image, timestamp)
+    pose_result = pose.detect_for_video(mp_image, timestamp)
     if result.hand_landmarks:
         features = extract_features(result.hand_landmarks[0])
         for hand in result.hand_landmarks:
@@ -66,6 +76,7 @@ while True:
                 px = int(point.x * w)
                 py = int(point.y * h)
                 cv2.circle(frame, (px, py), 5, (0, 255, 0),1)
+    
     if face_result.face_landmarks:
         for marks in face_result.face_landmarks[0]:
             px = int(marks.x * w)
@@ -73,7 +84,14 @@ while True:
             cv2.circle(frame,  (px, py), 1, (255, 0, 0), -1)
 
         landmarks = face_result.face_landmarks[0]
-
+    if pose_result.pose_landmarks:
+        pose_point = pose_result.pose_landmarks[0]
+        torso = [11,12, 24,23]
+        pts = [(int(pose_point[i].x * w), int(pose_point[i].y * h)) for i in torso]
+        for i in range(4):
+            cv2.line(frame, pts[i], pts[(i + 1) % 4], (0, 0, 255), 2)
+            
+    
     total = sum(counts.values())
     cv2.putText(frame, f"total: {total}  last: {last_letter}", (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
     cv2.imshow('Webcam', frame)
@@ -92,6 +110,7 @@ while True:
     
 f.close()
 face.close()
+torse.close()
 print(counts)
 camera.release()
 cv2.destroyAllWindows()

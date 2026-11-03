@@ -20,3 +20,5 @@ def window_to_arr(window):
     wx0, wy0 = window[0][1], window[0][2]
     rows = [f + [wx-wx0, wy-wy0] for f, wx, wy in window]
     return np.array(rows, dtype=np.float32)
+
+

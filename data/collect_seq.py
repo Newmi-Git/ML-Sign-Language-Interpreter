@@ -12,7 +12,7 @@ T = 30
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 HAND_MODEL_PATH = os.path.join(BASE_DIR, "models", "hand_landmarker.task")
 CSV_PATH = os.path.join(BASE_DIR, "seq_data.csv")
-KEYS = {ord("j"): "J", ord("z"): "Z", ord("0"): "NONE"}
+KEYS = {ord("j"): "J", ord("z"): "Z", ord("0"): "NONE", ord("h"): "HELLO"}
 
 base = BaseOptions(model_asset_path=HAND_MODEL_PATH)
 options = vision.HandLandmarkerOptions(
@@ -23,12 +23,30 @@ options = vision.HandLandmarkerOptions(
     min_hand_presence_confidence=0.3,
     min_tracking_confidence=0.3,
 )
+
+fbase = BaseOptions(model_asset_path=FACE_MODEL_PATH)
+pbase = BaseOptions(model_asset_path=POSE_MODEL_PATH)
+foptions = vision.FaceLandmarkerOptions(
+    base_options=fbase,
+    running_mode=vision.RunningMode.VIDEO,
+    num_faces = 1
+)
+
+poptions = vision.PoseLandmarkerOptions(
+    base_options=pbase,
+    running_mode=vision.RunningMode.VIDEO,
+    num_poses=1
+)
+
 hands = vision.HandLandmarker.create_from_options(options)
+face = vision.FaceLandmarker.create_from_options(foptions)
+pose = vision.PoseLandmarker.create_from_options(poptions)
+
 camera = cv2.VideoCapture(0)
 f = open(CSV_PATH, "a", newline="")
 writer = csv.writer(f)
 
-counts = {"J": 0, "Z": 0, "NONE": 0}
+counts = {"J": 0, "Z": 0, "NONE": 0, "HELLO": 0}
 rec_label, window = None, []
 MAX_MISS = 5
 miss = 0
