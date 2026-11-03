@@ -5,13 +5,13 @@ import mediapipe as mp
 import time
 from mediapipe.tasks.python import BaseOptions
 from mediapipe.tasks.python import vision 
-import os
+import os 
 
 MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models", "hand_landmarker.task")
 print(MODEL_PATH, os.path.exists(MODEL_PATH))
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CSV_PATH = os.path.join(BASE_DIR, "data.csv")
-
+FACE_MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models", "face_landmarker.task")
 
 letters = "ABCDEFGHIKLMNOPQRSTUVWXY"
 counts = {c: 0 for c in letters}
@@ -20,6 +20,16 @@ writer = csv.writer(f)
 last_letter = ""
 camera = cv2.VideoCapture(0)
 base = BaseOptions(model_asset_path=MODEL_PATH)
+
+fbase = BaseOptions(model_asset_path=FACE_MODEL_PATH)
+
+foptions = vision.FaceLandmarkerOptions(
+    base_options=fbase,
+    running_mode=vision.RunningMode.VIDEO,
+    num_faces = 1
+)
+
+
 options = vision.HandLandmarkerOptions(
     base_options = base,
     running_mode=vision.RunningMode.VIDEO,
@@ -29,8 +39,9 @@ options = vision.HandLandmarkerOptions(
     min_tracking_confidence=0.5
 )
 
-hands = vision.HandLandmarker.create_from_options(options)
 
+hands = vision.HandLandmarker.create_from_options(options)
+face = vision.FaceLandmarker.create_from_options(foptions)
 while True:
     success, frame = camera.read()
 
@@ -47,6 +58,7 @@ while True:
     timestamp = int(time.time() * 1000)
     result = hands.detect_for_video(mp_image, timestamp)
     features = None
+    face_result = face.detect_for_video(mp_image, timestamp)
     if result.hand_landmarks:
         features = extract_features(result.hand_landmarks[0])
         for hand in result.hand_landmarks:
@@ -54,6 +66,13 @@ while True:
                 px = int(point.x * w)
                 py = int(point.y * h)
                 cv2.circle(frame, (px, py), 5, (0, 255, 0),1)
+    if face_result.face_landmarks:
+        for marks in face_result.face_landmarks[0]:
+            px = int(marks.x * w)
+            py = int(marks.y * h)
+            cv2.circle(frame,  (px, py), 1, (255, 0, 0), -1)
+
+        landmarks = face_result.face_landmarks[0]
 
     total = sum(counts.values())
     cv2.putText(frame, f"total: {total}  last: {last_letter}", (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
@@ -72,7 +91,7 @@ while True:
 
     
 f.close()
-
+face.close()
 print(counts)
 camera.release()
 cv2.destroyAllWindows()
