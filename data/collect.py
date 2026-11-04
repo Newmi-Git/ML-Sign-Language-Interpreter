@@ -111,7 +111,7 @@ while True:
     
 f.close()
 face.close()
-torse.close()
+pose.close()
 print(counts)
 camera.release()
 cv2.destroyAllWindows()
