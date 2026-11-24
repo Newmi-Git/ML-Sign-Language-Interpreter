@@ -11,9 +11,11 @@ from features import frame_vec, resample
 HERE = os.path.dirname(os.path.abspath(__file__))
 CSV_PATH = os.path.join(HERE, "words.csv")
 
+REC_SECONDS = 2.0     # must match WINDOW_MS in App.vue
+
 # Edit this list. Only add signs you have checked with a SASL source / Deaf signer.
-VOCAB = ["HELLO", "THANK-YOU", "PLEASE", "YES", "NO",
-         "HELP", "WATER", "FOOD", "TOILET", "SORRY", "NONE"]
+VOCAB = ["HELLO", "HOW-ARE-YOU", "FINE", "THANK-YOU", "PLEASE", "SORRY",
+         "HELP", "WATER", "TOILET", "YES", "NO", "NONE"]
 
 SESSION = input("Session / signer name (e.g. newmi_1): ").strip() or "s1"
 
@@ -34,7 +36,7 @@ camera = cv2.VideoCapture(0)
 out = open(CSV_PATH, "a", newline="")
 writer = csv.writer(out)
 
-current, recording, clip = 0, False, []
+current, recording, clip, rec_start = 0, False, [], 0
 saved = {v: 0 for v in VOCAB}
 
 while True:
@@ -58,14 +60,27 @@ while True:
             right = lm
     pose = pr.pose_landmarks[0] if pr.pose_landmarks else None
 
-    if recording and (left or right):          # only keep frames where a hand is visible
-        clip.append(frame_vec(left, right, pose))
-
     label = VOCAB[current]
+
+    if recording:                              # keep every frame for exactly 1 second
+        clip.append(frame_vec(left, right, pose))
+        if time.time() - rec_start >= REC_SECONDS:
+            recording = False
+            writer.writerow([label, SESSION] + resample(clip).round(5).flatten().tolist())
+            out.flush()
+            saved[label] += 1
+    h, w = frame.shape[:2]
+    for hand, dot_colour in ((left, (255, 255, 0)), (right, (0, 255, 255))):
+        for p in hand or []:                   # all 21 points of each hand
+            cv2.circle(frame, (int(p.x * w), int(p.y * h)), 3, dot_colour, -1)
+    if pose:                                   # nose, mouth, shoulders, elbows, wrists
+        for i in (0, 9, 10, 11, 12, 13, 14, 15, 16):
+            cv2.circle(frame, (int(pose[i].x * w), int(pose[i].y * h)), 5, (0, 255, 0), -1)
+
     colour = (0, 0, 255) if recording else (255, 255, 255)
     text = f"{label}  saved:{saved[label]}  {'REC ' + str(len(clip)) if recording else ''}"
     cv2.putText(frame, text, (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, colour, 2)
-    cv2.putText(frame, "r=record/stop  n=next  p=prev  q=quit", (10, frame.shape[0] - 15),
+    cv2.putText(frame, "r=record 1s  n=next  p=prev  q=quit", (10, frame.shape[0] - 15),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
     cv2.imshow("collect words", frame)
 
@@ -76,17 +91,8 @@ while True:
         current = (current + 1) % len(VOCAB)
     elif key == ord("p"):
         current = (current - 1) % len(VOCAB)
-    elif key == ord("r"):
-        if not recording:
-            recording, clip = True, []
-        else:
-            recording = False
-            if len(clip) >= 10:
-                writer.writerow([label, SESSION] + resample(clip).round(5).flatten().tolist())
-                out.flush()
-                saved[label] += 1
-            else:
-                print("clip too short, not saved")
+    elif key == ord("r") and not recording:
+        recording, clip, rec_start = True, [], time.time()
 
 camera.release()
 cv2.destroyAllWindows()

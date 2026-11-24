@@ -22,12 +22,13 @@ class SeqModel(nn.Module): #GRU is being used to get continious frame data
         return self.out(h[-1])
 
 class WordModel(nn.Module):
-    def __init__(self, num_classes, in_dim=138, hidden=128)
+    def __init__(self, num_classes, in_dim=138, hidden=128):
         super().__init__()
         self.gru = nn.GRU(in_dim, hidden, batch_first=True)
-        self.gru = nn.Linear(hidden, num_classes)
-    def foward(self,x):
-        _, f = self.gru(x)
+        self.out = nn.Linear(hidden, num_classes)
+
+    def forward(self, x):
+        _, h = self.gru(x)
         return self.out(h[-1])
 
         

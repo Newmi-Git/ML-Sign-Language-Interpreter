@@ -4,16 +4,33 @@ import { FilesetResolver, HandLandmarker, PoseLandmarker } from "@mediapipe/task
 
 const API = import.meta.env.VITE_API || "http://localhost:5000"
 const WASM = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
+const WINDOW_MS = 2000   // must match REC_SECONDS in collect_words.py (1.0 s)
+
+// what to show/say for each sign. Edit to match your vocabulary.
+const SAY = {
+  "HELLO": "Hello",
+  "HOW-ARE-YOU": "How are you?",
+  "FINE": "I'm fine",
+  "THANK-YOU": "Thank you",
+  "PLEASE": "Please",
+  "SORRY": "Sorry",
+  "HELP": "Help me, please",
+  "WATER": "I need water",
+  "TOILET": "Where is the toilet?",
+  "YES": "Yes",
+  "NO": "No",
+}
 
 const video = ref(null)
 const canvas = ref(null)
 const status = ref("Press Start")
 const glosses = ref([])
-const sentence = ref("")
 
 let hands, pose
-let clip = []      // frames of the sign being made right now
-let missed = 0     // frames in a row with no hand
+let buffer = []          // the last second of frames: { t, frame }
+let lastSend = 0
+let lastLabel = null
+let lastAccepted = 0
 
 async function start() {
   try {
@@ -34,7 +51,7 @@ async function start() {
     await video.value.play()
     canvas.value.width = video.value.videoWidth
     canvas.value.height = video.value.videoHeight
-    status.value = "Sign a word, then lower your hands"
+    status.value = "Sign something"
     requestAnimationFrame(loop)
   } catch (e) {
     status.value = "Error: " + e.message
@@ -74,23 +91,17 @@ function loop() {
     dots(ctx, lm, W, H, "#22d3ee")
   })
 
-  if (h.landmarks.length) {
-    clip.push(frame)
-    missed = 0
-  } else if (clip.length && ++missed > 8) {   // hands gone for ~8 frames = sign finished
-    send(clip)
-    clip = []
-    missed = 0
-  }
-  if (clip.length > 90) {                      // safety: cut very long clips
-    send(clip)
-    clip = []
+  // keep only the last second, and ask the server about it 4 times a second
+  buffer.push({ t, frame })
+  buffer = buffer.filter((b) => t - b.t <= WINDOW_MS)
+  if (h.landmarks.length && t - lastSend > 250 && buffer.length >= 10) {
+    lastSend = t
+    send(buffer.map((b) => b.frame))
   }
   requestAnimationFrame(loop)
 }
 
 async function send(frames) {
-  if (frames.length < 10) return
   try {
     const r = await fetch(`${API}/predict`, {
       method: "POST",
@@ -98,25 +109,32 @@ async function send(frames) {
       body: JSON.stringify({ frames }),
     })
     const { label, conf } = await r.json()
-    status.value = label ? `Heard ${label} (${conf.toFixed(2)})` : "Too short"
-    if (label && label !== "NONE" && conf >= 0.8) glosses.value.push(label)
+    status.value = label ? `${label} (${conf.toFixed(2)})` : "..."
+    const now = performance.now()
+    if (label && label !== "NONE" && conf >= 0.8) {
+      // accept a sign when it is the answer twice in a row, then wait 1.5 s
+      if (label === lastLabel && now - lastAccepted > WINDOW_MS + 500) {
+        glosses.value.push(label)
+        lastAccepted = now
+        lastLabel = null
+      } else {
+        lastLabel = label
+      }
+    } else {
+      lastLabel = null
+    }
   } catch (e) {
     status.value = "Server not reachable"
   }
 }
 
-async function makeSentence() {
-  const r = await fetch(`${API}/sentence`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ glosses: glosses.value }),
-  })
-  sentence.value = (await r.json()).text
+function speak() {
+  const text = glosses.value.map((g) => SAY[g] || g).join(". ")
+  speechSynthesis.speak(new SpeechSynthesisUtterance(text))
 }
 
 function clearAll() {
   glosses.value = []
-  sentence.value = ""
 }
 </script>
 
@@ -129,10 +147,9 @@ function clearAll() {
     <button @click="start">Start</button>
 
     <h2>Signs</h2>
-    <p class="glosses">{{ glosses.join("  ") || "-" }}</p>
-    <button @click="makeSentence" :disabled="!glosses.length">Make sentence</button>
+    <p class="glosses">{{ glosses.map((g) => SAY[g] || g).join(" · ") || "-" }}</p>
+    <button @click="speak" :disabled="!glosses.length">Speak</button>
     <button @click="clearAll">Clear</button>
-    <p class="sentence">{{ sentence }}</p>
 
     <p class="note">Your video never leaves your device. Only hand and body points are sent to the server.</p>
   </main>
@@ -143,6 +160,5 @@ function clearAll() {
 canvas { width: 100%; border-radius: 8px; background: #111; }
 button { margin: 0 0.5rem 0.5rem 0; padding: 0.5rem 1rem; }
 .glosses { font-size: 1.4rem; font-weight: 600; }
-.sentence { font-size: 1.2rem; }
 .note { font-size: 0.8rem; opacity: 0.7; }
 </style>

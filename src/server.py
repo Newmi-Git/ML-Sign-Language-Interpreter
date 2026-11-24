@@ -4,7 +4,6 @@ from types import SimpleNamespace as NS
 import torch
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-
 from features import frame_vec, resample
 from model import WordModel
 
