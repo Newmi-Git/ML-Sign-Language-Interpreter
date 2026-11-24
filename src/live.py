@@ -29,7 +29,7 @@ SPACE_DELAY = 0.5
 no_hand_since = None
 space_added = False
 
-ckpt = torch.load(CKPT_PATH)
+ckpt = torch.load(CKPT_PATH, weights_only=True)
 labels = ckpt["labels"]
 clf = build_model(len(labels))
 clf.load_state_dict(ckpt["state"])
